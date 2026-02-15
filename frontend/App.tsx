@@ -12,7 +12,10 @@ import { Dashboard } from './components/Dashboard';
 const App: React.FC = () => {
   const [view, setView] = useState<'landing' | 'dashboard'>('landing');
 
-  const goToDashboard = () => setView('dashboard');
+  const goToDashboard = () => {
+    const visionAppUrl = import.meta.env.VITE_VISION_APP_URL || 'https://masc-vision.onrender.com';
+    window.location.href = visionAppUrl;
+  };
   const goToHome = () => setView('landing');
 
   if (view === 'dashboard') {
@@ -24,7 +27,7 @@ const App: React.FC = () => {
       {/* Background Decorative Gradients */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-purple-600/10 blur-[120px] rounded-full -z-10 pointer-events-none" />
       <div className="fixed bottom-0 right-0 w-[400px] h-[400px] bg-indigo-600/10 blur-[120px] rounded-full -z-10 pointer-events-none" />
-      
+
       <Navbar onGetStarted={goToDashboard} />
       <main>
         <Hero onGetStarted={goToDashboard} />
