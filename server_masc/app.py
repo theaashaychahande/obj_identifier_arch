@@ -7,12 +7,24 @@ import time
 
 # --- CONFIGURATION ---
 st.set_page_config(
-    page_title="MASC Precision Vision",
+    page_title="MASC Precision Core",
     page_icon="🎯",
     layout="wide",
 )
 
-# Premium Dark CSS
+# Robust STUN Servers for Cloud Connectivity
+RTC_CONFIG = RTCConfiguration(
+    {"iceServers": [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {"urls": ["stun:stun1.l.google.com:19302"]},
+        {"urls": ["stun:stun2.l.google.com:19302"]},
+        {"urls": ["stun:stun3.l.google.com:19302"]},
+        {"urls": ["stun:stun4.l.google.com:19302"]},
+        {"urls": ["stun:global.stun.twilio.com:3478"]}
+    ]}
+)
+
+# Custom Styling
 st.markdown("""
 <style>
     .stApp { background-color: #020617; color: #f8fafc; }
@@ -27,7 +39,7 @@ class PrecisionVideoProcessor(VideoProcessorBase):
     def __init__(self):
         self.mode = "OBJECT ID"
         self.threshold = 100
-        self.persistence = {} # {label: {"timestamp": time, "box": [x,y,w,h], "color": color}}
+        self.persistence = {} 
         self.last_results = []
         self._lock = threading.Lock()
 
@@ -46,99 +58,62 @@ class PrecisionVideoProcessor(VideoProcessorBase):
         
         with self._lock:
             current_mode = self.mode
-            thresh_val = self.threshold
 
-        # 1. Image Pre-processing (Advanced)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Use median blur to remove salt-and-pepper noise
-        denoised = cv2.medianBlur(gray, 5)
-        # Adaptive thresholding to handle lighting changes
-        edged = cv2.adaptiveThreshold(denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+        denoised = cv2.medianBlur(img, 5)
+        gray = cv2.cvtColor(denoised, cv2.COLOR_BGR2GRAY)
+        edged = cv2.Canny(gray, 30, 80)
         
-        # Cleanup small noise spikes
-        kernel = np.ones((3,3), np.uint8)
-        edged = cv2.morphologyEx(edged, cv2.MORPH_OPEN, kernel)
-
         temp_detections = []
 
         if "OBJECT" in current_mode:
             contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
             frame_hits = {}
-
             for cnt in contours:
                 area = cv2.contourArea(cnt)
-                if area < 1500: continue # Ignore small debris
-
-                # A. Get the Rotated Bounding Box (Much more accurate)
+                if area < 1500: continue 
                 rect = cv2.minAreaRect(cnt)
                 box = cv2.boxPoints(rect)
                 box = np.int64(box)
-                
-                # Get dimensions from the rotated rect
                 (x_c, y_c), (w_r, h_r), angle = rect
                 if w_r == 0 or h_r == 0: continue
-                
-                # Normalize aspect ratio (always longer side / shorter side)
                 longer = max(w_r, h_r)
                 shorter = min(w_r, h_r)
                 aspect = longer / shorter
-                
-                # Circularity Check
                 peri = cv2.arcLength(cnt, True)
                 circularity = (4 * np.pi * area) / (peri * peri) if peri > 0 else 0
                 
                 label = None
                 color = (255, 255, 255)
-
-                # 1. SELLOTAPE (Highly Circular)
                 if circularity > 0.75:
                     label = "Sellotape"
-                    color = (22, 163, 74) # Green
-                
-                # 2. PEN (Extremely High Aspect Ratio)
+                    color = (22, 163, 74)
                 elif aspect > 4.5:
                     label = "Pen"
-                    color = (37, 99, 235) # Blue
-                
-                # 3. SHARPENER (Rectangular but not thin)
+                    color = (37, 99, 235)
                 elif 1.1 < aspect < 2.5:
-                    if circularity < 0.8: # Reject circles
+                    if circularity < 0.8:
                         label = "Sharpener"
-                        color = (234, 179, 8) # Yellow
+                        color = (234, 179, 8)
 
                 if label:
-                    # Target Locking: Draw the rotated box
                     cv2.drawContours(img, [box], 0, color, 3)
-                    # Use standard x,y for text placement
                     sx, sy, sw, sh = cv2.boundingRect(cnt)
                     cv2.putText(img, label, (sx, sy-15), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 3)
-                    
                     frame_hits[label] = {"timestamp": now, "color": color}
 
-            # Update Persistence Logic (3s TTL)
             with self._lock:
-                # Add new hits
-                for l, d in frame_hits.items():
-                    self.persistence[l] = d
-                
-                # Cleanup and prepare output
+                for l, d in frame_hits.items(): self.persistence[l] = d
                 final_labels = []
                 expired = []
                 for l, d in self.persistence.items():
-                    if now - d['timestamp'] < 3.0:
-                        final_labels.append(l)
-                    else:
-                        expired.append(l)
-                
+                    if now - d['timestamp'] < 3.0: final_labels.append(l)
+                    else: expired.append(l)
                 for e in expired: del self.persistence[e]
                 self.last_results = final_labels
-
         else:
-            # COLOR MODE (User says it's already working, so we keep the logic clean)
             hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
             color_ranges = {
-                "Red": [([0, 150, 70], [10, 255, 255]), ([170, 150, 70], [180, 255, 255])],
+                "Red": [([0, 150, 70], [10, 255, 255]), ([160, 150, 70], [180, 255, 255])],
                 "Yellow": [([25, 120, 100], [35, 255, 255])],
                 "Green": [([35, 100, 50], [85, 255, 255])],
                 "Blue": [([95, 150, 50], [130, 255, 255])]
@@ -151,39 +126,27 @@ class PrecisionVideoProcessor(VideoProcessorBase):
                     mask = cv2.inRange(hsv, np.array(ln), np.array(hn))
                     m = mask if m is None else cv2.bitwise_or(m, mask)
                 pc = (cv2.countNonZero(m) / total) * 100
-                if pc > 4.0:
-                    found_colors.append(f"{name} ({round(pc)}%)")
-            with self._lock:
-                self.last_results = found_colors
+                if pc > 4.0: found_colors.append(f"{name} ({round(pc)}%)")
+            with self._lock: self.last_results = found_colors
 
         return frame.from_ndarray(img, format="bgr24")
 
 # --- UI INTERFACE ---
-st.title("MASC Precision Core V5")
-st.markdown("<span class='status-active'>● AI_ENGINE_ONLINE</span>", unsafe_allow_html=True)
+st.title("MASC Precision Core V6")
+st.markdown("<span class='status-active'>● ENGINE_STATUS_STABLE</span>", unsafe_allow_html=True)
 
 with st.sidebar:
     st.image("https://img.icons8.com/nolan/128/artificial-intelligence.png", width=70)
     st.header("Vision Specs")
     app_mode = st.radio("Detector Hub", ["OBJECT ID", "COLOR ID"])
     st.markdown("---")
-    st.subheader("Fine-Tuning")
     sensitivity = st.slider("Environmental Sensitivity", 50, 150, 100)
     st.markdown("---")
-    st.info("Logic: Geometric minAreaRect Analysis\nStability: 3s Neural Lock")
+    st.info("System: Full WebRTC Stack\nConnectivity: Multi-STUN Enabled")
 
-st.markdown("""
-<div class="info-box">
-    <b>System Guidance:</b> Ensure your objects are placed on a <b>solid, contrasting background</b>. 
-    The AI is currently tuned for <b>Sellotape</b> (Round), <b>Pens</b> (Long & Thin), and <b>Sharpeners</b> (Rectangular).
-</div>
-""", unsafe_allow_html=True)
-
-# RTC Main
-RTC_CONFIG = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
-
+# UNIQUE KEY PER SESSION TO PREVENT CRASH
 ctx = webrtc_streamer(
-    key="masc-precision-v5",
+    key=f"masc-v6-{st.session_state.get('run_id', 0)}",
     video_processor_factory=PrecisionVideoProcessor,
     rtc_configuration=RTC_CONFIG,
     media_stream_constraints={"video": True, "audio": False},
@@ -195,22 +158,19 @@ if ctx.video_processor:
 
 st.divider()
 col1, col2 = st.columns(2)
-
 with col1:
-    st.subheader("� Intelligence Log")
+    st.subheader("🧠 Intelligence Log")
     if ctx.video_processor:
         res = ctx.video_processor.get_latest()
         if res:
-            for r in sorted(list(set(res))):
-                st.success(f"**LOCKED**: {r}")
-        else:
-            st.write("Awaiting target signal...")
-
+            for r in sorted(list(set(res))): st.success(f"**LOCKED**: {r}")
+        else: st.write("Awaiting target signal...")
 with col2:
-    st.subheader("� Process Diagnostics")
+    st.subheader("📊 System Telemetry")
     if ctx.state.playing:
         st.write("🟢 STREAM_PLAYING")
-        st.write("✔️ ADAPTIVE_THRESH_ACTIVE")
-        st.write("✔️ GEOMETRIC_LOCK_ACTIVE")
     else:
         st.write("⚪ STANDBY_MODE")
+        if st.button("🔄 Reset Stream Session"):
+            st.session_state['run_id'] = st.session_state.get('run_id', 0) + 1
+            st.rerun()
