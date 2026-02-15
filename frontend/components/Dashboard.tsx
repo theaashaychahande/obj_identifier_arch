@@ -28,6 +28,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBack }) => {
   const [isVisionEnabled, setIsVisionEnabled] = useState(false);
   const [inferenceTime, setInferenceTime] = useState(0);
   const [isBackendConnected, setIsBackendConnected] = useState<boolean | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -106,8 +107,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBack }) => {
             method: 'POST',
             body: formData,
           });
+          if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+          }
+
           const data = await response.json();
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
           const now = Date.now();
+          setLastError(null);
 
           if (!isBackendConnected) setIsBackendConnected(true);
 
@@ -141,8 +151,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBack }) => {
           }
 
           setInferenceTime(Math.round(performance.now() - startTime));
-        } catch (err) {
-          console.error("Backend unreachable:", err);
+        } catch (err: any) {
+          console.error("Inference Error:", err);
+          setLastError(err.message || "Connection lost");
+          setIsBackendConnected(false);
         }
       }, 'image/jpeg', 0.8);
     }
@@ -244,8 +256,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBack }) => {
           <div className="flex gap-4 items-center">
             {/* Backend Status Indicator */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${isBackendConnected === true ? 'bg-green-500/10 border-green-500/20 text-green-400' :
-                isBackendConnected === false ? 'bg-red-500/10 border-red-500/20 text-red-500' :
-                  'bg-slate-800 border-slate-700 text-slate-500'
+              isBackendConnected === false ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                'bg-slate-800 border-slate-700 text-slate-500'
               }`}>
               <div className={`w-1.5 h-1.5 rounded-full ${isBackendConnected === true ? 'bg-green-400' : isBackendConnected === false ? 'bg-red-400' : 'bg-slate-600'}`} />
               <span className="text-[10px] font-black uppercase tracking-widest leading-none">
@@ -375,6 +387,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onBack }) => {
                     <span className="text-[10px] font-black uppercase text-white">{inferenceTime}ms</span>
                   </div>
                 </div>
+
+                {lastError && (
+                  <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                    <div className="text-[8px] font-black uppercase text-red-500 tracking-widest mb-1">Critical Error</div>
+                    <div className="text-[10px] font-bold text-red-400 break-words">{lastError}</div>
+                  </div>
+                )}
               </div>
 
               {activeTab === 'object' ? (
