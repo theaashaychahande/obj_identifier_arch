@@ -3,8 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import numpy as np
 from ultralytics import YOLO
-import io
-from PIL import Image
+import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -12,12 +16,26 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load YOLO model
-model = YOLO('backend/yolov8n.pt')
+# Global model variable
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        logger.info("Loading YOLO model...")
+        # Use a path that works both locally and on Render
+        model_path = os.path.join(os.path.dirname(__file__), 'yolov8n.pt')
+        if not os.path.exists(model_path):
+            # Fallback for different structures
+            model_path = 'backend/yolov8n.pt'
+        model = YOLO(model_path)
+        logger.info("Model loaded successfully.")
+    return model
 
 # Target classes mapping
 TARGET_CLASSES = {
@@ -28,12 +46,15 @@ TARGET_CLASSES = {
 
 @app.get("/")
 async def root():
-    model_status = "Loaded" if model else "Not Loaded"
     return {
-        "message": "MASC Detection API V2.3.1",
-        "model_status": model_status,
-        "supported_classes": list(TARGET_CLASSES.values())
+        "status": "online",
+        "message": "MASC Detection API V2.3.2",
+        "model_loaded": model is not None
     }
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 @app.post("/detect")
 async def detect_objects(file: UploadFile = File(...)):
@@ -45,8 +66,8 @@ async def detect_objects(file: UploadFile = File(...)):
         if frame is None:
             return {"error": "Invalid image data"}
 
-        # Lowered confidence slightly to 0.3 for better cloud-link sensitivity
-        results = model(frame, stream=True, verbose=False, classes=list(TARGET_CLASSES.keys()), conf=0.3)
+        current_model = get_model()
+        results = current_model(frame, stream=True, verbose=False, classes=list(TARGET_CLASSES.keys()), conf=0.3)
         detections = []
 
         for r in results:
@@ -64,6 +85,7 @@ async def detect_objects(file: UploadFile = File(...)):
 
         return {"detections": detections}
     except Exception as e:
+        logger.error(f"Detection error: {e}")
         return {"error": str(e)}
 
 @app.post("/detect-colors")
@@ -78,7 +100,6 @@ async def identify_colors(file: UploadFile = File(...)):
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         
-        # Comprehensive color ranges in HSV
         color_ranges = {
             "Red": [([0, 100, 100], [10, 255, 255]), ([160, 100, 100], [180, 255, 255])],
             "Orange": [([11, 100, 100], [25, 255, 255])],
@@ -92,7 +113,7 @@ async def identify_colors(file: UploadFile = File(...)):
             "Brown": [([10, 100, 20], [20, 255, 200])],
             "White": [([0, 0, 200], [180, 30, 255])],
             "Gray": [([0, 0, 50], [180, 30, 199])],
-            "Black": [([0, 0, 0], [180, 255, 49])]
+            "Black": [([0, 0, 0], [180, 255, 40])]
         }
 
         detected_colors = []
@@ -108,7 +129,6 @@ async def identify_colors(file: UploadFile = File(...)):
             percentage = (count / total_pixels) * 100
             
             if percentage > 1.0:
-                # Find the largest region of this color
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 if contours:
                     largest_contour = max(contours, key=cv2.contourArea)
@@ -122,10 +142,11 @@ async def identify_colors(file: UploadFile = File(...)):
         detected_colors.sort(key=lambda x: x["percentage"], reverse=True)
         return {"colors": detected_colors}
     except Exception as e:
+        logger.error(f"Color detection error: {e}")
         return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 8000))
+    logger.info(f"Starting server on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
