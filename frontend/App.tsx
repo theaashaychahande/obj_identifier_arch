@@ -13,7 +13,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<'landing' | 'dashboard'>('landing');
 
   const goToDashboard = () => {
-    const visionAppUrl = import.meta.env.VITE_VISION_APP_URL || 'https://masc-vision.onrender.com';
+    const visionAppUrl = import.meta.env.VITE_VISION_APP_URL || 'https://masc-server0.onrender.com';
     window.location.href = visionAppUrl;
   };
   const goToHome = () => setView('landing');
@@ -31,10 +31,6 @@ const App: React.FC = () => {
       <Navbar onGetStarted={goToDashboard} />
       <main>
         <Hero onGetStarted={goToDashboard} />
-        <ProjectContext />
-        <Features />
-        <TeamSection />
-        <FAQ />
       </main>
       <Footer />
     </div>
