@@ -31,6 +31,10 @@ const App: React.FC = () => {
       <Navbar onGetStarted={goToDashboard} />
       <main>
         <Hero onGetStarted={goToDashboard} />
+        <ProjectContext />
+        <Features />
+        <TeamSection />
+        <FAQ />
       </main>
       <Footer />
     </div>
