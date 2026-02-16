@@ -33,7 +33,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
           Fine-Tuned YOLOv8-Nano Core
         </div>
 
-        <h1 className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.9] text-white">
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.9] text-white">
           Intelligent Sorting via <br />
           <span className="text-gradient">Neural Vision</span>
         </h1>
@@ -43,7 +43,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-4">
-          <button 
+          <button
             onClick={onGetStarted}
             className="w-full sm:w-auto px-10 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-black text-lg shadow-2xl shadow-purple-600/30 transition-all flex items-center justify-center gap-2 group"
           >
@@ -52,7 +52,7 @@ export const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </button>
-          <button 
+          <button
             onClick={scrollToTeam}
             className="w-full sm:w-auto px-10 py-4 bg-slate-900 border border-slate-800 hover:border-slate-600 text-white rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 shadow-xl hover:bg-slate-800"
           >
@@ -73,41 +73,41 @@ export const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
             <div className="text-[10px] text-slate-600 font-mono tracking-[0.4em] uppercase font-black">SYSTEM_INTERFACE_ACTIVE</div>
             <div className="w-10"></div>
           </div>
-          
+
           <div className="p-8 grid grid-cols-12 gap-8 h-full">
             <div className="col-span-3 space-y-6">
               <div className="bg-slate-900/80 rounded-2xl p-5 border border-slate-800 shadow-inner">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-black mb-2">Confidence</div>
                 <div className="text-2xl font-black text-green-400">98.7%</div>
                 <div className="mt-3 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="w-[98%] h-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]"></div>
+                  <div className="w-[98%] h-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]"></div>
                 </div>
               </div>
               <div className="bg-slate-900/80 rounded-2xl p-5 border border-slate-800 shadow-inner">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-black mb-2">Latency</div>
                 <div className="text-2xl font-black text-purple-400">38ms</div>
                 <div className="mt-3 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="w-1/4 h-full bg-purple-500"></div>
+                  <div className="w-1/4 h-full bg-purple-500"></div>
                 </div>
               </div>
             </div>
             <div className="col-span-6 bg-slate-900/40 rounded-3xl border border-slate-800 relative overflow-hidden flex flex-col items-center justify-center">
-                <div className="relative w-1/2 aspect-square border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center">
-                   <div className="absolute inset-0 bg-purple-500/5 animate-pulse"></div>
-                   <div className="relative w-20 h-20 bg-slate-900/90 rounded-2xl flex items-center justify-center text-[10px] font-mono text-slate-300 border border-slate-700 shadow-2xl">
-                     OBJ_LIVE
-                     <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-purple-500 rounded-tl-sm"></div>
-                     <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 border-purple-500 rounded-br-sm"></div>
-                   </div>
+              <div className="relative w-1/2 aspect-square border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center">
+                <div className="absolute inset-0 bg-purple-500/5 animate-pulse"></div>
+                <div className="relative w-20 h-20 bg-slate-900/90 rounded-2xl flex items-center justify-center text-[10px] font-mono text-slate-300 border border-slate-700 shadow-2xl">
+                  OBJ_LIVE
+                  <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-purple-500 rounded-tl-sm"></div>
+                  <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 border-purple-500 rounded-br-sm"></div>
                 </div>
+              </div>
             </div>
             <div className="col-span-3 bg-slate-900/80 p-6 rounded-2xl border border-slate-800">
-                <div className="text-[10px] text-slate-500 uppercase font-black mb-5 tracking-[0.2em]">Live Output</div>
-                <div className="space-y-3 font-mono text-[10px] font-bold">
-                    <div className="text-green-400 bg-green-500/10 p-2 rounded border border-green-500/10 uppercase">Sharpener</div>
-                    <div className="text-yellow-400 bg-yellow-500/10 p-2 rounded border border-yellow-500/10 uppercase">CelloTape</div>
-                    <div className="text-blue-400 bg-blue-500/10 p-2 rounded border border-blue-500/10 uppercase">Pen</div>
-                </div>
+              <div className="text-[10px] text-slate-500 uppercase font-black mb-5 tracking-[0.2em]">Live Output</div>
+              <div className="space-y-3 font-mono text-[10px] font-bold">
+                <div className="text-green-400 bg-green-500/10 p-2 rounded border border-green-500/10 uppercase">Sharpener</div>
+                <div className="text-yellow-400 bg-yellow-500/10 p-2 rounded border border-yellow-500/10 uppercase">CelloTape</div>
+                <div className="text-blue-400 bg-blue-500/10 p-2 rounded border border-blue-500/10 uppercase">Pen</div>
+              </div>
             </div>
           </div>
         </div>
