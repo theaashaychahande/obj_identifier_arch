@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import threading
 import time
+import os
+from ultralytics import YOLO
 
 # --- CONFIGURATION ---
 st.set_page_config(
@@ -34,6 +36,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# TARGET CLASSES MAPPING
+TARGET_CLASSES = {
+    32: "Cellotape",
+    67: "Sharpener",
+    79: "Pen"
+}
+
 # --- VISION ENGINE ---
 class PrecisionVideoProcessor(VideoProcessorBase):
     def __init__(self):
@@ -42,6 +51,12 @@ class PrecisionVideoProcessor(VideoProcessorBase):
         self.persistence = {} 
         self.last_results = []
         self._lock = threading.Lock()
+        
+        # Load YOLO Model
+        model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'yolov8n.pt')
+        if not os.path.exists(model_path):
+             model_path = 'yolov8n.pt' # Fallback
+        self.model = YOLO(model_path)
 
     def update_params(self, mode, threshold):
         with self._lock:
@@ -59,47 +74,22 @@ class PrecisionVideoProcessor(VideoProcessorBase):
         with self._lock:
             current_mode = self.mode
 
-        denoised = cv2.medianBlur(img, 5)
-        gray = cv2.cvtColor(denoised, cv2.COLOR_BGR2GRAY)
-        edged = cv2.Canny(gray, 30, 80)
-        
-        temp_detections = []
-
         if "OBJECT" in current_mode:
-            contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            results = self.model(img, stream=True, verbose=False, classes=list(TARGET_CLASSES.keys()), conf=0.3)
             frame_hits = {}
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if area < 1500: continue 
-                rect = cv2.minAreaRect(cnt)
-                box = cv2.boxPoints(rect)
-                box = np.int64(box)
-                (x_c, y_c), (w_r, h_r), angle = rect
-                if w_r == 0 or h_r == 0: continue
-                longer = max(w_r, h_r)
-                shorter = min(w_r, h_r)
-                aspect = longer / shorter
-                peri = cv2.arcLength(cnt, True)
-                circularity = (4 * np.pi * area) / (peri * peri) if peri > 0 else 0
-                
-                label = None
-                color = (255, 255, 255)
-                if circularity > 0.75:
-                    label = "Sellotape"
-                    color = (22, 163, 74)
-                elif aspect > 4.5:
-                    label = "Pen"
-                    color = (37, 99, 235)
-                elif 1.1 < aspect < 2.5:
-                    if circularity < 0.8:
-                        label = "Sharpener"
-                        color = (234, 179, 8)
-
-                if label:
-                    cv2.drawContours(img, [box], 0, color, 3)
-                    sx, sy, sw, sh = cv2.boundingRect(cnt)
-                    cv2.putText(img, label, (sx, sy-15), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 3)
-                    frame_hits[label] = {"timestamp": now, "color": color}
+            for r in results:
+                for box in r.boxes:
+                    coords = box.xyxy[0].cpu().numpy().astype(int)
+                    score = float(box.conf[0])
+                    cls_id = int(box.cls[0])
+                    
+                    if cls_id in TARGET_CLASSES:
+                        label = TARGET_CLASSES[cls_id]
+                        color = (37, 99, 235) if label == "Pen" else (22, 163, 74) if label == "Cellotape" else (234, 179, 8)
+                        
+                        cv2.rectangle(img, (coords[0], coords[1]), (coords[2], coords[3]), color, 3)
+                        cv2.putText(img, f"{label} {score:.2f}", (coords[0], coords[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 3)
+                        frame_hits[label] = {"timestamp": now, "color": color}
 
             with self._lock:
                 for l, d in frame_hits.items(): self.persistence[l] = d
@@ -113,10 +103,17 @@ class PrecisionVideoProcessor(VideoProcessorBase):
         else:
             hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
             color_ranges = {
-                "Red": [([0, 150, 70], [10, 255, 255]), ([160, 150, 70], [180, 255, 255])],
-                "Yellow": [([25, 120, 100], [35, 255, 255])],
-                "Green": [([35, 100, 50], [85, 255, 255])],
-                "Blue": [([95, 150, 50], [130, 255, 255])]
+                "Red": [([0, 100, 100], [10, 255, 255]), ([160, 100, 100], [180, 255, 255])],
+                "Orange": [([11, 100, 100], [25, 255, 255])],
+                "Yellow": [([26, 100, 100], [34, 255, 255])],
+                "Green": [([35, 50, 50], [85, 255, 255])],
+                "Cyan": [([86, 50, 50], [100, 255, 255])],
+                "Blue": [([101, 50, 50], [130, 255, 255])],
+                "Violet": [([131, 50, 50], [145, 255, 255])],
+                "Magenta": [([146, 50, 50], [165, 255, 255])],
+                "Pink": [([166, 50, 50], [180, 100, 255])],
+                "White": [([0, 0, 200], [180, 30, 255])],
+                "Black": [([0, 0, 0], [180, 255, 40])]
             }
             total = img.shape[0] * img.shape[1]
             found_colors = []
@@ -126,8 +123,20 @@ class PrecisionVideoProcessor(VideoProcessorBase):
                     mask = cv2.inRange(hsv, np.array(ln), np.array(hn))
                     m = mask if m is None else cv2.bitwise_or(m, mask)
                 pc = (cv2.countNonZero(m) / total) * 100
-                if pc > 4.0: found_colors.append(f"{name} ({round(pc)}%)")
+                if pc > 2.0: 
+                    found_colors.append(f"{name} ({round(pc)}%)")
+                    # Draw highlight for the color
+                    contours, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if contours:
+                        largest = max(contours, key=cv2.contourArea)
+                        if cv2.contourArea(largest) > 500:
+                            x, y, w, h = cv2.boundingRect(largest)
+                            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 255, 255), 1)
+                            cv2.putText(img, name, (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
             with self._lock: self.last_results = found_colors
+
+        return frame.from_ndarray(img, format="bgr24")
 
         return frame.from_ndarray(img, format="bgr24")
 
